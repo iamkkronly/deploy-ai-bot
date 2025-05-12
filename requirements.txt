@@ -9,3 +9,6 @@ pydantic
 pyTelegramBotAPI
 requests
 fastapi
+pyTelegramBotAPI
+fastapi
+requests
