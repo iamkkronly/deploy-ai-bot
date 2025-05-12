@@ -6,3 +6,6 @@ uvicorn
 telebot
 requests
 pydantic
+pyTelegramBotAPI
+requests
+fastapi
