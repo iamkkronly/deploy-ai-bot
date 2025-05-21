@@ -12,3 +12,4 @@ fastapi
 pyTelegramBotAPI
 fastapi
 requests
+pip install --upgrade pip
