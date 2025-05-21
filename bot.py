@@ -7,8 +7,8 @@ import json
 app = FastAPI()
 
 # Load environment variables (set these later in Vercel)
-TELEGRAM_BOT_TOKEN = os.environ["7388278300:AAHUM2fmyBTi9fzw3AfAgJQnycVgNwkyn9M"]
-GEMINI_API_KEY = os.environ["AIzaSyA7a8YLdL_qWxoXqumA2zcW7_SKskRMSRE"]
+TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
+GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 
 # Bot Personalization
 BOT_NAME = "iamkkronly"
