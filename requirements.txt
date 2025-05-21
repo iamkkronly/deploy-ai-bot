@@ -15,3 +15,8 @@ requests
 python-telegram-bot==13.8
 requests
 Flask
+fastapi
+telebot
+requests
+uvicorn
+gunicorn
