@@ -12,4 +12,6 @@ fastapi
 pyTelegramBotAPI
 fastapi
 requests
---upgrade
+python-telegram-bot==13.8
+requests
+Flask
