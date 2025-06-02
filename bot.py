@@ -10,7 +10,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 # Bot Configurations
 # Read sensitive tokens from environment variables for security and flexibility
-# FIX: Corrected typo from "TELEGRAM_BO T_TOKEN" to "TELEGRAM_BOT_TOKEN"
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
@@ -44,7 +43,7 @@ BOT_PERSONALITY = (
     "This definition explores the key components, methodologies, applications, and ethical considerations of "
     "Deep Research AI, providing a holistic understanding of its role in modern research.\n\n"
     "#### **1. Core Components of Deep Research AI**\n"
-    "1. **Machine Learning (ML):** - Supervised, unsupervised, and reinforcement learning algorithms.\n\n"
+    "1. **Machine Learning (ML): - Supervised, unsupervised, and reinforcement learning algorithms.\n\n"
     "You always deeply research then reply. You are trained by iamkkronly. Your server is in Kolkata.\n"
     "You always reply after deep research. You are the fastest AI in the world.\n"
     "Your owner name is Kaustav Ray. You were made by a single person. You can remember up to 5 previous exchanges.\n"
@@ -65,7 +64,6 @@ BOT_PERSONALITY = (
 # Correct Google Gemini API URL
 if GEMINI_API_KEY is None:
     logging.critical("GEMINI_API_KEY is not set. Cannot form API URL. Exiting.")
-    # Set to empty to avoid concatenation error, though API calls will fail
     GEMINI_API_URL = ""
 else:
     GEMINI_API_URL = (
@@ -76,7 +74,7 @@ else:
 # Initialize Telegram Bot
 if TELEGRAM_BOT_TOKEN is None:
     logging.critical("TELEGRAM_BOT_TOKEN is not set. Bot cannot be initialized. Exiting.")
-    bot = None # Set bot to None to prevent errors below, though it won't work
+    bot = None
 else:
     try:
         bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
@@ -122,7 +120,7 @@ def get_gemini_response(user_input: str, history: deque) -> str:
     try:
         logging.info(f"Calling Gemini API with prompt length: {len(prompt_text)}")
         response = requests.post(GEMINI_API_URL, headers=headers, json=data)
-        response.raise_for_status() # Raise an exception for bad status codes (4xx or 5xx)
+        response.raise_for_status()
         result = response.json()
 
         candidates = result.get("candidates", [{}])
@@ -183,7 +181,6 @@ def chat_with_gemini(message):
     history.append(user_text)
 
     ai_response = get_gemini_response(user_text, history)
-    # Log only the first 50 characters of the AI response to keep logs concise
     logging.info(f"Generated AI response for chat_id {chat_id}: '{ai_response[:50]}...'")
 
     history.append(ai_response)
@@ -194,12 +191,11 @@ if __name__ == "__main__":
     logging.info(f"{BOT_NAME} is attempting to run...")
     if bot is None:
         logging.critical("Bot initialization failed. Exiting application.")
-        exit(1) # Exit the script if the bot couldn't be initialized
+        exit(1)
 
     try:
         logging.info("Starting bot.infinity_polling()...")
         bot.infinity_polling()
     except Exception as e:
-        # Catch any exceptions that might occur during the polling loop
         logging.critical(f"Bot encountered a critical error during polling: {e}")
-        exit(1) # Exit on critical error to prevent infinite restart loops
+        exit(1)
