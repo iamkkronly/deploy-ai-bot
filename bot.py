@@ -1,11 +1,13 @@
+import os
 import telebot
 import requests
 import json
 from collections import deque
 
 # Bot Configurations
-TELEGRAM_BOT_TOKEN = "7574084757:AAFP52jL8KVaiD4j8RTE02S82J8D0TwyiGg"  # Replace with your actual bot token
-GEMINI_API_KEY = "AIzaSyD3fNCe8FZghIk4Xh6BAs6A3ds1_7jxY1w"           # Replace with your actual API key
+# Read sensitive tokens from environment variables for security and flexibility
+[span_0](start_span)TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")  #[span_0](end_span)
+[span_1](start_span)GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")           #[span_1](end_span)
 
 # Bot Personalization
 BOT_NAME = "iamkkronly"
@@ -46,12 +48,18 @@ BOT_PERSONALITY = (
 )
 
 # Correct Google Gemini API URL
+# Ensure that GEMINI_API_KEY is not None before concatenating
+if GEMINI_API_KEY is None:
+    raise ValueError("GEMINI_API_KEY environment variable is not set.")
 GEMINI_API_URL = (
     "https://generativelanguage.googleapis.com/v1/models/"
     "gemini-1.5-flash:generateContent?key=" + GEMINI_API_KEY
 )
 
 # Initialize Telegram Bot
+# Ensure that TELEGRAM_BOT_TOKEN is not None before initializing
+if TELEGRAM_BOT_TOKEN is None:
+    raise ValueError("TELEGRAM_BOT_TOKEN environment variable is not set.")
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
 
 # In-memory context store to remember up to 5 previous exchanges per chat_id
@@ -67,16 +75,6 @@ def get_gemini_response(user_input: str, history: deque) -> str:
     headers = {"Content-Type": "application/json"}
 
     # Build the conversation context
-    # We prepend BOT_PERSONALITY and then interleave the history entries.
-    # The expected format for Gemini might be something like:
-    #
-    # BOT_PERSONALITY
-    # User: <previous user message 1>
-    # AI: <previous AI response 1>
-    # ...
-    # User: <latest user_input>
-    # AI:
-    #
     prompt_lines = [BOT_PERSONALITY.strip()]
     for idx, message in enumerate(history):
         if idx % 2 == 0:
@@ -103,8 +101,6 @@ def get_gemini_response(user_input: str, history: deque) -> str:
         response = requests.post(GEMINI_API_URL, headers=headers, json=data)
         response.raise_for_status()
         result = response.json()
-        # For debugging purposes, you could uncomment the following line:
-        # print("API Response:", json.dumps(result, indent=2))
 
         candidates = result.get("candidates", [{}])
         if candidates:
@@ -114,6 +110,8 @@ def get_gemini_response(user_input: str, history: deque) -> str:
         return "No response from AI."
     except requests.exceptions.RequestException as e:
         return f"API Error: {str(e)}"
+    except KeyError:
+        return "Error: Could not parse AI response. Unexpected format."
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -148,4 +146,12 @@ def chat_with_gemini(message):
 
 if __name__ == "__main__":
     print(f"{BOT_NAME} is running...")
+    # It's good practice to ensure tokens are set before starting
+    if not TELEGRAM_BOT_TOKEN:
+        print("Error: TELEGRAM_BOT_TOKEN environment variable not set. Exiting.")
+        exit(1)
+    if not GEMINI_API_KEY:
+        print("Error: GEMINI_API_KEY environment variable not set. Exiting.")
+        exit(1)
+
     bot.infinity_polling()
