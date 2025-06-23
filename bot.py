@@ -1,12 +1,12 @@
 import os
+import time
+import json
+import requests
 import telebot
 from telebot import types
-import requests
-import json
 from collections import deque
-import time
 
-# --- Bot Configurations ---
+# Configurations
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
@@ -21,109 +21,80 @@ HELP_MESSAGE = (
 )
 
 BOT_PERSONALITY = (
-    "You are a large language model trained by iamkkronly. "
-    "You are ChatGPT Plus, Gemini Premium, and DeepSeek AI combined. "
-    "Your name is iamkkronly. You are friendly and helpful, always providing clear and concise answers. "
-    "Movies channel: https://t.me/freemovieslight\n"
-    "Anime channel: https://t.me/freeanimelight\n"
-    "Chat Support (Movies): https://t.me/chgtmovie\n\n"
-    "Deep Research AI refers to advanced AI techniques to conduct in-depth, systematic, and autonomous research. "
-    "Combining ML, NLP, data mining, and other AI technologies, it analyzes vast data, generates insights, and solves complex problems. "
-    "Your knowledge is continuously updated. "
+    "You are iamkkronly AI, a friendly and helpful assistant made by Kaustav Ray. "
+    "You combine ChatGPT, Gemini, and DeepSeek AI powers. Your replies are clear, helpful and deep-researched."
 )
 
-GEMINI_API_URL = (
-    "https://generativelanguage.googleapis.com/v1/models/"
-    "gemini-1.5-flash:generateContent?key=" + GEMINI_API_KEY
-)
+GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
 
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
-chat_history = {}
+chat_history = {}  # chat_id -> deque of last 10 messages
 
-def get_gemini_response(user_input: str, history: deque) -> str:
+def get_gemini_response(user_input, history):
     headers = {"Content-Type": "application/json"}
-    contents = [{"role": "user", "parts": [{"text": BOT_PERSONALITY.strip()}]}]
+    contents = [{"role": "user", "parts": [{"text": BOT_PERSONALITY}]}]
 
     for idx, message in enumerate(history):
         role = "user" if idx % 2 == 0 else "model"
         contents.append({"role": role, "parts": [{"text": message}]})
 
     contents.append({"role": "user", "parts": [{"text": user_input}]})
+
     data = {"contents": contents}
 
     try:
-        response = requests.post(GEMINI_API_URL, headers=headers, json=data)
-        response.raise_for_status()
-        result = response.json()
-        candidates = result.get("candidates", [{}])
+        r = requests.post(GEMINI_API_URL, headers=headers, json=data)
+        r.raise_for_status()
+        result = r.json()
+        candidates = result.get("candidates", [])
         if candidates:
-            content = candidates[0].get("content", {})
-            parts = content.get("parts", [{}])
+            parts = candidates[0].get("content", {}).get("parts", [])
             if parts and "text" in parts[0]:
-                return parts[0].get("text").strip()
-        return "Sorry, I couldn't get a clear response from the AI."
-    except requests.exceptions.RequestException as e:
-        return f"Connection error: {str(e)}"
-    except json.JSONDecodeError:
-        return "Invalid response format received."
-    except Exception:
-        return "An unexpected error occurred."
+                return parts[0]["text"].strip()
+        return "I couldn't get a clear answer from Gemini AI."
+    except Exception as e:
+        return f"Error: {str(e)}"
 
-@bot.message_handler(commands=['start'])
-def send_welcome(message):
-    chat_id = message.chat.id
-    if chat_id not in chat_history:
-        chat_history[chat_id] = deque(maxlen=10)
-    bot.send_message(chat_id, WELCOME_MESSAGE, parse_mode='Markdown')
+@bot.message_handler(commands=["start"])
+def handle_start(message):
+    chat_history.setdefault(message.chat.id, deque(maxlen=10))
+    bot.send_message(message.chat.id, WELCOME_MESSAGE, parse_mode="Markdown")
 
-@bot.message_handler(commands=['help'])
-def send_help(message):
-    bot.send_message(message.chat.id, HELP_MESSAGE, parse_mode='Markdown')
+@bot.message_handler(commands=["help"])
+def handle_help(message):
+    bot.send_message(message.chat.id, HELP_MESSAGE, parse_mode="Markdown")
 
-@bot.message_handler(commands=['reset'])
-def reset_conversation(message):
-    chat_id = message.chat.id
-    if chat_id in chat_history:
-        chat_history[chat_id].clear()
-        bot.send_message(chat_id, "Our conversation history has been cleared! Let's start fresh.")
-    else:
-        bot.send_message(chat_id, "There's no conversation history to clear for this chat.")
+@bot.message_handler(commands=["reset"])
+def handle_reset(message):
+    chat_history[message.chat.id] = deque(maxlen=10)
+    bot.send_message(message.chat.id, "Conversation reset. Let's start fresh!")
 
-@bot.message_handler(func=lambda message: True)
-def chat_with_gemini(message):
-    chat_id = message.chat.id
-    user_text = message.text.strip()
-    if chat_id not in chat_history:
-        chat_history[chat_id] = deque(maxlen=10)
-    history = chat_history[chat_id]
-    history.append(user_text)
+@bot.message_handler(func=lambda m: True)
+def handle_chat(message):
+    cid = message.chat.id
+    chat_history.setdefault(cid, deque(maxlen=10))
+    chat_history[cid].append(message.text)
 
-    bot.send_chat_action(chat_id, 'typing')
-    ai_response = get_gemini_response(user_text, history)
-    history.append(ai_response)
+    bot.send_chat_action(cid, "typing")
+    reply = get_gemini_response(message.text, chat_history[cid])
+    chat_history[cid].append(reply)
 
     markup = types.InlineKeyboardMarkup()
     markup.add(
         types.InlineKeyboardButton("👍 Like", callback_data=f"like_{message.message_id}"),
         types.InlineKeyboardButton("👎 Dislike", callback_data=f"dislike_{message.message_id}")
     )
+    bot.reply_to(message, reply, parse_mode="Markdown", reply_markup=markup)
 
-    bot.reply_to(message, ai_response, parse_mode='Markdown', reply_markup=markup)
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith('like_') or call.data.startswith('dislike_'))
-def handle_feedback_callback(call):
-    feedback_type = call.data.split('_')[0]
-    if feedback_type == 'like':
-        bot.answer_callback_query(call.id, "Thanks for the positive feedback!")
+@bot.callback_query_handler(func=lambda call: True)
+def handle_feedback(call):
+    if "like" in call.data:
+        bot.answer_callback_query(call.id, "Thanks for liking!")
     else:
-        bot.answer_callback_query(call.id, "Thanks for your feedback. We'll improve!")
+        bot.answer_callback_query(call.id, "Thanks for your feedback!")
     try:
-        bot.edit_message_reply_markup(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            reply_markup=None
-        )
-    except Exception:
+        bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
+    except:
         pass
 
 if __name__ == "__main__":
@@ -131,7 +102,6 @@ if __name__ == "__main__":
     while True:
         try:
             bot.infinity_polling(timeout=10, long_polling_timeout=5)
-        except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError):
+        except Exception as e:
+            print(f"Polling error: {e}")
             time.sleep(5)
-        except Exception:
-            time.sleep(10)
